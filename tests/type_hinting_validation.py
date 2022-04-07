@@ -89,6 +89,10 @@ aws_sns_sqs(
         "dev.tomodachi.mypy.filter_key": ["a", "b", "c", 4711],
     },
 )
+aws_sns_sqs(
+    "topic",
+    retry_for=(ValueError, ZeroDivisionError),
+)
 
 list_value = ["test"]
 

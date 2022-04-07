@@ -12,7 +12,7 @@ import re
 import sys
 import time
 import uuid
-from typing import Any, Callable, Dict, List, Mapping, Match, Optional, Sequence, Set, Tuple, Union, cast
+from typing import Any, Callable, Dict, List, Mapping, Match, Optional, Sequence, Set, Tuple, Type, TypeVar, Union, cast
 
 import aiobotocore
 import aiohttp
@@ -42,6 +42,8 @@ MESSAGE_PROTOCOL_DEFAULT = MESSAGE_ENVELOPE_DEFAULT  # deprecated
 MESSAGE_TOPIC_PREFIX = "09698c75-832b-470f-8e05-96d2dd8c4853"
 MESSAGE_TOPIC_ATTRIBUTES = "dc6c667f-4c22-4a63-85f6-3ea0c7e2db49"
 FILTER_POLICY_DEFAULT = "7e68632f-3b39-4293-b5a9-16644cf857a5"
+
+E = TypeVar("E", bound=BaseException)
 
 AnythingButFilterPolicyValueType = Union[str, int, float, List[str], List[int], List[float], List[Union[int, float]]]
 AnythingButFilterPolicyDict = TypedDict(
@@ -254,6 +256,7 @@ class AWSSNSSQSTransport(Invoker):
         message_envelope: Any = MESSAGE_ENVELOPE_DEFAULT,
         message_protocol: Any = MESSAGE_ENVELOPE_DEFAULT,  # deprecated
         filter_policy: Optional[Union[str, FilterPolicyDictType]] = FILTER_POLICY_DEFAULT,
+        retry_for: Optional[Tuple[Type[E], ...]] = None,
         **kwargs: Any,
     ) -> Any:
         parser_kwargs = kwargs
@@ -421,14 +424,8 @@ class AWSSNSSQSTransport(Invoker):
             except (Exception, asyncio.CancelledError, BaseException) as e:
                 logging.getLogger("exception").exception("Uncaught exception: {}".format(str(e)))
                 return_value = None
-                if issubclass(
-                    e.__class__,
-                    (
-                        AWSSNSSQSInternalServiceError,
-                        AWSSNSSQSInternalServiceErrorException,
-                        AWSSNSSQSInternalServiceException,
-                    ),
-                ):
+                retriable_excs = retry_for or (AWSSNSSQSInternalServiceError,)
+                if issubclass(e.__class__, retriable_excs):
                     if message_key:
                         del context["_aws_sns_sqs_received_messages"][message_key]
                 else:
@@ -1544,6 +1541,7 @@ def aws_sns_sqs(
     message_envelope: Any = MESSAGE_ENVELOPE_DEFAULT,
     message_protocol: Any = MESSAGE_ENVELOPE_DEFAULT,  # deprecated
     filter_policy: Optional[Union[str, FilterPolicyDictType]] = FILTER_POLICY_DEFAULT,
+    retry_for: Optional[Tuple[Type[E], ...]] = None,
     **kwargs: Any,
 ) -> Callable:
     return cast(
@@ -1556,6 +1554,7 @@ def aws_sns_sqs(
             message_envelope=message_envelope,
             message_protocol=message_protocol,
             filter_policy=filter_policy,
+            retry_for=retry_for,
             **kwargs,
         ),
     )

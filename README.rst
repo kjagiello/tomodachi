@@ -556,7 +556,7 @@ HTTP endpoints:
 
 AWS SNS+SQS messaging:
 ----------------------
-``@tomodachi.aws_sns_sqs(topic=None, competing=True, queue_name=None, filter_policy=None, **kwargs)``
+``@tomodachi.aws_sns_sqs(topic=None, competing=True, queue_name=None, filter_policy=None, retry_for=None, **kwargs)``
   This would set up an **AWS SQS queue**, subscribing to messages on the **AWS SNS topic** ``topic`` (if a ``topic`` is specified), whereafter it will start consuming messages from the queue.
 
   The ``competing`` value is used when the same queue name should be used for several services of the same type and thus "compete" for who should consume the message. Since ``tomodachi`` version 0.19.x this value has a changed default value and will now default to ``True`` as this is the most likely use-case for pub/sub in distributed architectures.
@@ -568,6 +568,8 @@ AWS SNS+SQS messaging:
   If ``filter_policy`` is not specified as an argument (default), the queue will receive messages on the topic as per already specified if using an existing subscription, or receive all messages on the topic if a new subscription is set up (default). Changing the ``filter_policy`` on an existing subscription may take several minutes to propagate. Read more about the filter policy format on AWS. https://docs.aws.amazon.com/sns/latest/dg/sns-subscription-filter-policies.html
 
   Related to the above mentioned filter policy, the ``aws_sns_sqs_publish`` function (which is used for publishing messages) can specify "message attributes" using the ``message_attributes`` keyword argument. Values should be specified as a simple ``dict`` with keys and values. Example: ``{"event": "order_paid", "paid_amount": 100, "currency": "EUR"}``.
+
+  By default, the handler will consume and delete a message from the queue unless the message handler raises ``AWSSNSSQSInternalServiceError`` or any of its subclasses. This behaviour can be overriden using the ``retry_for`` kwarg which takes a tuple of exception classes. If any of the provided exceptions are raised by the message handler, the message will not be deleted and will be retried at a later time.
 
   Depending on the service ``message_envelope`` (previously named ``message_protocol``) attribute if used, parts of the enveloped data would be distributed to different keyword arguments of the decorated function. It's usually safe to just use ``data`` as an argument. You can also specify a specific ``message_envelope`` value as a keyword argument to the decorator for specifying a specific enveloping method to use instead of the global one set for the service.
 
